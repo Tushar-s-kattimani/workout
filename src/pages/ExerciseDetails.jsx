@@ -1,12 +1,27 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Timer, TrendingUp, Edit2, Check, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, Timer, TrendingUp, Edit2, Check, X, Trash2, Plus, GripHorizontal } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+const SortableWrapper = ({ id, render }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.7 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 50 : 1
+  };
+  return render({ setNodeRef, style, attributes, listeners });
+};
 
 const ExerciseDetails = () => {
   const { dayId } = useParams();
   const navigate = useNavigate();
-  const { workouts, toggleExerciseCompletion, toggleSetCompletion, updateExerciseWeight, updateUserVideoId, deleteExercise } = useContext(AppContext);
+  const { workouts, toggleExerciseCompletion, toggleSetCompletion, updateExerciseWeight, updateUserVideoId, deleteExercise, addExercise, reorderExercises } = useContext(AppContext);
   
   const dayWorkout = workouts.find(w => w.id === dayId);
   const [timer, setTimer] = useState(0);
@@ -17,6 +32,55 @@ const ExerciseDetails = () => {
   const [deletingExerciseId, setDeletingExerciseId] = useState(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  
+  const [isAddingExercise, setIsAddingExercise] = useState(false);
+  const [newExercise, setNewExercise] = useState({
+    name: '',
+    videoUrl: ''
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = dayWorkout.exercises.findIndex((ex) => ex.id === active.id);
+      const newIndex = dayWorkout.exercises.findIndex((ex) => ex.id === over.id);
+      const newArray = arrayMove(dayWorkout.exercises, oldIndex, newIndex);
+      reorderExercises(dayId, newArray);
+    }
+  };
+
+  const handleAddExerciseSubmit = (e) => {
+    e.preventDefault();
+    if (newExercise.name) {
+      let finalVideoId = null;
+      let input = newExercise.videoUrl.trim();
+      if (input) {
+        const match = input.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+        if (match && match[1]) {
+          finalVideoId = match[1];
+        } else if (input.length === 11 && !input.includes('/') && !input.includes('?')) {
+          finalVideoId = input;
+        }
+      }
+
+      addExercise(dayId, {
+        name: newExercise.name,
+        muscle: 'Custom',
+        sets: 3,
+        reps: '8-12',
+        rest: '60s',
+        currentWeight: 0,
+        userVideoId: finalVideoId
+      });
+      setIsAddingExercise(false);
+      setNewExercise({ name: '', videoUrl: '' });
+    }
+  };
 
   useEffect(() => {
     let interval;
@@ -100,11 +164,14 @@ const ExerciseDetails = () => {
       <div className="p-4">
         <p className="mb-4 text-secondary text-center">Complete all exercises to finish today's workout.</p>
         
-        {dayWorkout.exercises.map(exercise => {
-          const effectiveVideoId = exercise.userVideoId || exercise.videoId;
-          
-          return (
-          <div key={exercise.id} className={`card ${exercise.isCompleted ? 'border-accent' : ''}`} style={exercise.isCompleted ? { borderColor: 'var(--accent-color)', opacity: 0.8 } : {}}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={dayWorkout.exercises.map(e => e.id)} strategy={verticalListSortingStrategy}>
+            {dayWorkout.exercises.map(exercise => {
+              const effectiveVideoId = exercise.userVideoId || exercise.videoId;
+              
+              return (
+              <SortableWrapper key={exercise.id} id={exercise.id} render={({ setNodeRef, style, attributes, listeners }) => (
+              <div ref={setNodeRef} className={`card ${exercise.isCompleted ? 'border-accent' : ''}`} style={{ ...style, ...(exercise.isCompleted ? { borderColor: 'var(--accent-color)', opacity: 0.8 } : {}) }}>
             
             {/* Delete Confirmation Block */}
             {deletingExerciseId === exercise.id && (
@@ -152,6 +219,16 @@ const ExerciseDetails = () => {
               </div>
             ) : (
               <div className="mb-4 relative" style={{ margin: '-16px -16px 16px -16px' }}>
+                {/* Drag Handle */}
+                <div 
+                  className="absolute top-2 left-2 flex items-center justify-center btn-icon bg-secondary"
+                  style={{ width: '32px', height: '32px', opacity: 0.9, cursor: 'grab', zIndex: 10, touchAction: 'none' }}
+                  {...attributes} 
+                  {...listeners}
+                >
+                  <GripHorizontal size={16} />
+                </div>
+                
                 {effectiveVideoId ? (
                   <div className="bg-primary" style={{ borderTopLeftRadius: '16px', borderTopRightRadius: '16px', overflow: 'hidden', aspectRatio: '16/9' }}>
                     <iframe 
@@ -286,8 +363,35 @@ const ExerciseDetails = () => {
               "Increase weight next week"
             </div>
           </div>
+          )} />
           );
         })}
+        </SortableContext>
+        </DndContext>
+
+        {/* Add Custom Exercise UI */}
+        {!isAddingExercise ? (
+          <button 
+            className="btn w-full flex items-center justify-center gap-2 mt-4" 
+            onClick={() => setIsAddingExercise(true)}
+            style={{ padding: '12px', backgroundColor: 'var(--bg-card)', border: '1px dashed var(--accent-color)', color: 'var(--accent-color)' }}
+          >
+            <Plus size={20} /> Add Another Exercise
+          </button>
+        ) : (
+          <form className="card mt-4" onSubmit={handleAddExerciseSubmit} style={{ border: '1px solid var(--accent-color)' }}>
+            <h3 className="mb-4 text-accent text-center font-bold">New Custom Exercise</h3>
+            <div className="flex flex-col gap-3">
+              <input type="text" className="input-control p-2" placeholder="Exercise Name (e.g. Bicep Curl)" required value={newExercise.name} onChange={e => setNewExercise({...newExercise, name: e.target.value})} />
+              <input type="text" className="input-control p-2" placeholder="YouTube URL (Optional)" value={newExercise.videoUrl} onChange={e => setNewExercise({...newExercise, videoUrl: e.target.value})} />
+              
+              <div className="flex gap-2 mt-2">
+                <button type="submit" className="btn btn-primary flex-1" style={{ padding: '10px' }}><Check size={18} /> Add</button>
+                <button type="button" className="btn btn-secondary flex-1" onClick={() => setIsAddingExercise(false)} style={{ padding: '10px' }}><X size={18} /> Cancel</button>
+              </div>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

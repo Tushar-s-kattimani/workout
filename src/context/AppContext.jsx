@@ -27,7 +27,10 @@ export const AppProvider = ({ children }) => {
   });
 
   const [workouts, setWorkouts] = useState(workoutPlan);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const savedMode = localStorage.getItem('isDarkMode');
+    return savedMode !== null ? savedMode === 'true' : true;
+  });
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Initialize DB and Seed Data
@@ -113,7 +116,11 @@ export const AppProvider = ({ children }) => {
     }
   }, [isDarkMode]);
 
-  const toggleTheme = () => setIsDarkMode(prev => !prev);
+  const toggleTheme = () => setIsDarkMode(prev => {
+    const newMode = !prev;
+    localStorage.setItem('isDarkMode', newMode);
+    return newMode;
+  });
 
   // Profile Mutation
   const calculateBMI = (weight, heightCm) => {
@@ -253,6 +260,35 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const addExercise = async (dayId, exerciseData) => {
+    let updatedDay = null;
+
+    setWorkouts(prevWorkouts => {
+      return prevWorkouts.map(day => {
+        if (day.id === dayId) {
+          const newExercise = {
+            ...exerciseData,
+            id: `custom_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            isCompleted: false,
+            completedSets: [],
+            currentWeight: parseInt(exerciseData.currentWeight) || 0
+          };
+          const newDay = {
+            ...day,
+            exercises: [...day.exercises, newExercise]
+          };
+          updatedDay = newDay;
+          return newDay;
+        }
+        return day;
+      });
+    });
+
+    if (updatedDay) {
+      await setDoc(doc(db, `${USER_PATH}/workouts`, dayId), updatedDay);
+    }
+  };
+
   const deleteExercise = async (dayId, exerciseId) => {
     let updatedDay = null;
 
@@ -275,6 +311,28 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const reorderExercises = async (dayId, newExercisesArray) => {
+    let updatedDay = null;
+
+    setWorkouts(prevWorkouts => {
+      return prevWorkouts.map(day => {
+        if (day.id === dayId) {
+          const newDay = {
+            ...day,
+            exercises: newExercisesArray
+          };
+          updatedDay = newDay;
+          return newDay;
+        }
+        return day;
+      });
+    });
+
+    if (updatedDay) {
+      await setDoc(doc(db, `${USER_PATH}/workouts`, dayId), updatedDay);
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       userProfile,
@@ -282,6 +340,8 @@ export const AppProvider = ({ children }) => {
       dailyStats,
       updateDailyStats,
       workouts,
+      addExercise,
+      reorderExercises,
       toggleExerciseCompletion,
       toggleSetCompletion,
       updateExerciseWeight,
