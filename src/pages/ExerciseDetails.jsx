@@ -151,9 +151,9 @@ const ExerciseDetails = () => {
                 </div>
               </div>
             ) : (
-              <div className="mb-4 relative">
+              <div className="mb-4 relative" style={{ margin: '-16px -16px 16px -16px' }}>
                 {effectiveVideoId ? (
-                  <div className="bg-primary" style={{ borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9' }}>
+                  <div className="bg-primary" style={{ borderTopLeftRadius: '16px', borderTopRightRadius: '16px', overflow: 'hidden', aspectRatio: '16/9' }}>
                     <iframe 
                       width="100%" 
                       height="100%" 
@@ -171,7 +171,7 @@ const ExerciseDetails = () => {
                     target="_blank" 
                     rel="noreferrer"
                     className="flex items-center justify-center" 
-                    style={{ backgroundColor: 'var(--bg-primary)', borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', textDecoration: 'none', flexDirection: 'column' }}
+                    style={{ backgroundColor: 'var(--bg-primary)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', overflow: 'hidden', aspectRatio: '16/9', textDecoration: 'none', flexDirection: 'column' }}
                   >
                     <div style={{ padding: '16px', backgroundColor: '#FF0000', borderRadius: '50%', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
