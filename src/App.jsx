@@ -47,15 +47,26 @@ const AppContent = ({ setIsAuthenticated }) => {
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
+    return localStorage.getItem('isAuthenticated') === 'true';
+  });
+
+  const handleAuthChange = (status) => {
+    setIsAuthenticated(status);
+    if (status) {
+      localStorage.setItem('isAuthenticated', 'true');
+    } else {
+      localStorage.removeItem('isAuthenticated');
+    }
+  };
 
   return (
     <AppProvider>
       <Router>
         {!isAuthenticated ? (
-          <Login onLogin={() => setIsAuthenticated(true)} />
+          <Login onLogin={() => handleAuthChange(true)} />
         ) : (
-          <AppContent setIsAuthenticated={setIsAuthenticated} />
+          <AppContent setIsAuthenticated={handleAuthChange} />
         )}
       </Router>
     </AppProvider>
