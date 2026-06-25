@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Timer, TrendingUp, Edit2, Check, X, Trash2, Plus, GripHorizontal } from 'lucide-react';
@@ -28,6 +28,28 @@ const ExerciseDetails = () => {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [editingVideoFor, setEditingVideoFor] = useState(null);
   const [tempVideoUrl, setTempVideoUrl] = useState('');
+  
+  const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
+  const alarmAudioRef = useRef(null);
+  
+  useEffect(() => {
+    alarmAudioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    alarmAudioRef.current.loop = true;
+    return () => {
+      if (alarmAudioRef.current) {
+        alarmAudioRef.current.pause();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isAlarmPlaying && alarmAudioRef.current) {
+      alarmAudioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+    } else if (!isAlarmPlaying && alarmAudioRef.current) {
+      alarmAudioRef.current.pause();
+      alarmAudioRef.current.currentTime = 0;
+    }
+  }, [isAlarmPlaying]);
   
   const [deletingExerciseId, setDeletingExerciseId] = useState(null);
   const [deletePassword, setDeletePassword] = useState('');
@@ -98,8 +120,16 @@ const ExerciseDetails = () => {
       interval = setInterval(() => {
         setTimer(prev => prev - 1);
       }, 1000);
-    } else if (timer === 0) {
+    } else if (timer === 0 && isTimerRunning) {
       setIsTimerRunning(false);
+      setIsAlarmPlaying(true);
+      try {
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200, 100, 200, 100, 500]);
+        }
+      } catch (e) {
+        console.error("Vibration failed", e);
+      }
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timer]);
@@ -168,6 +198,18 @@ const ExerciseDetails = () => {
             Rest Timer
           </h3>
           <p className="text-3xl font-bold">{formatTime(timer)}</p>
+        </div>
+      )}
+
+      {isAlarmPlaying && (
+        <div className="card sticky top-0 m-4 text-center z-50" style={{ borderColor: 'var(--warning-color)', border: '2px solid var(--warning-color)', animation: 'pulse 1.5s infinite' }}>
+          <h3 className="text-warning mb-2 flex items-center justify-center gap-2">
+            <Timer size={20} />
+            Rest Complete!
+          </h3>
+          <button className="btn w-full font-bold" style={{ backgroundColor: 'var(--warning-color)', color: '#000' }} onClick={() => setIsAlarmPlaying(false)}>
+            Stop Alarm
+          </button>
         </div>
       )}
 
