@@ -21,7 +21,7 @@ const SortableWrapper = ({ id, render }) => {
 const ExerciseDetails = () => {
   const { dayId } = useParams();
   const navigate = useNavigate();
-  const { workouts, toggleExerciseCompletion, toggleSetCompletion, updateExerciseWeight, updateUserVideoId, deleteExercise, addExercise, reorderExercises } = useContext(AppContext);
+  const { workouts, toggleExerciseCompletion, toggleSetCompletion, updateExerciseWeight, updateUserVideoId, deleteExercise, addExercise, reorderExercises, recordWorkoutCompletion } = useContext(AppContext);
   
   const dayWorkout = workouts.find(w => w.id === dayId);
   const [timer, setTimer] = useState(0);
@@ -38,6 +38,16 @@ const ExerciseDetails = () => {
     name: '',
     videoUrl: ''
   });
+
+  const totalExercises = dayWorkout?.exercises?.length || 0;
+  const completedExercises = dayWorkout?.exercises?.filter(ex => ex.isCompleted)?.length || 0;
+  const isWorkoutCompleted = totalExercises > 0 && totalExercises === completedExercises;
+
+  const handleFinishWorkout = async () => {
+    await recordWorkoutCompletion(dayWorkout.title);
+    alert('Workout completed and recorded!');
+    navigate('/');
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -161,8 +171,8 @@ const ExerciseDetails = () => {
         </div>
       )}
 
-      <div className="p-4">
-        <p className="mb-4 text-secondary text-center">Complete all exercises to finish today's workout.</p>
+      <div style={{ padding: '16px 0', paddingBottom: '100px' }}>
+        <p className="mb-4 text-secondary text-center" style={{ padding: '0 16px' }}>Complete all exercises to finish today's workout.</p>
         
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={dayWorkout.exercises.map(e => e.id)} strategy={verticalListSortingStrategy}>
@@ -171,7 +181,7 @@ const ExerciseDetails = () => {
               
               return (
               <SortableWrapper key={exercise.id} id={exercise.id} render={({ setNodeRef, style, attributes, listeners }) => (
-              <div ref={setNodeRef} className={`card ${exercise.isCompleted ? 'border-accent' : ''}`} style={{ ...style, ...(exercise.isCompleted ? { borderColor: 'var(--accent-color)', opacity: 0.8 } : {}) }}>
+              <div ref={setNodeRef} className={`card ${exercise.isCompleted ? 'border-accent' : ''}`} style={{ ...style, borderRadius: 0, borderLeft: 'none', borderRight: 'none', ...(exercise.isCompleted ? { borderColor: 'var(--accent-color)', opacity: 0.8 } : {}) }}>
             
             {/* Delete Confirmation Block */}
             {deletingExerciseId === exercise.id && (
@@ -230,7 +240,7 @@ const ExerciseDetails = () => {
                 </div>
                 
                 {effectiveVideoId ? (
-                  <div className="bg-primary" style={{ borderTopLeftRadius: '16px', borderTopRightRadius: '16px', overflow: 'hidden', aspectRatio: '16/9' }}>
+                  <div className="bg-primary" style={{ borderTopLeftRadius: '0', borderTopRightRadius: '0', overflow: 'hidden', aspectRatio: '4/3' }}>
                     <iframe 
                       width="100%" 
                       height="100%" 
@@ -248,7 +258,7 @@ const ExerciseDetails = () => {
                     target="_blank" 
                     rel="noreferrer"
                     className="flex items-center justify-center" 
-                    style={{ backgroundColor: 'var(--bg-primary)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', overflow: 'hidden', aspectRatio: '16/9', textDecoration: 'none', flexDirection: 'column' }}
+                    style={{ backgroundColor: 'var(--bg-primary)', borderTopLeftRadius: '0', borderTopRightRadius: '0', overflow: 'hidden', aspectRatio: '4/3', textDecoration: 'none', flexDirection: 'column' }}
                   >
                     <div style={{ padding: '16px', backgroundColor: '#FF0000', borderRadius: '50%', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
@@ -370,28 +380,40 @@ const ExerciseDetails = () => {
         </DndContext>
 
         {/* Add Custom Exercise UI */}
-        {!isAddingExercise ? (
-          <button 
-            className="btn w-full flex items-center justify-center gap-2 mt-4" 
-            onClick={() => setIsAddingExercise(true)}
-            style={{ padding: '12px', backgroundColor: 'var(--bg-card)', border: '1px dashed var(--accent-color)', color: 'var(--accent-color)' }}
-          >
-            <Plus size={20} /> Add Another Exercise
-          </button>
-        ) : (
-          <form className="card mt-4" onSubmit={handleAddExerciseSubmit} style={{ border: '1px solid var(--accent-color)' }}>
-            <h3 className="mb-4 text-accent text-center font-bold">New Custom Exercise</h3>
-            <div className="flex flex-col gap-3">
-              <input type="text" className="input-control p-2" placeholder="Exercise Name (e.g. Bicep Curl)" required value={newExercise.name} onChange={e => setNewExercise({...newExercise, name: e.target.value})} />
-              <input type="text" className="input-control p-2" placeholder="YouTube URL (Optional)" value={newExercise.videoUrl} onChange={e => setNewExercise({...newExercise, videoUrl: e.target.value})} />
-              
-              <div className="flex gap-2 mt-2">
-                <button type="submit" className="btn btn-primary flex-1" style={{ padding: '10px' }}><Check size={18} /> Add</button>
-                <button type="button" className="btn btn-secondary flex-1" onClick={() => setIsAddingExercise(false)} style={{ padding: '10px' }}><X size={18} /> Cancel</button>
+        <div style={{ padding: '0 16px' }}>
+          {!isAddingExercise ? (
+            <button 
+              className="btn w-full flex items-center justify-center gap-2 mt-4" 
+              onClick={() => setIsAddingExercise(true)}
+              style={{ width: '100%', padding: '12px', backgroundColor: 'var(--bg-card)', border: '1px dashed var(--accent-color)', color: 'var(--accent-color)' }}
+            >
+              <Plus size={20} /> Add Another Exercise
+            </button>
+          ) : (
+            <form className="card mt-4" onSubmit={handleAddExerciseSubmit} style={{ border: '1px solid var(--accent-color)' }}>
+              <h3 className="mb-4 text-accent text-center font-bold">New Custom Exercise</h3>
+              <div className="flex flex-col gap-3">
+                <input type="text" className="input-control p-2" placeholder="Exercise Name (e.g. Bicep Curl)" required value={newExercise.name} onChange={e => setNewExercise({...newExercise, name: e.target.value})} />
+                <input type="text" className="input-control p-2" placeholder="YouTube URL (Optional)" value={newExercise.videoUrl} onChange={e => setNewExercise({...newExercise, videoUrl: e.target.value})} />
+                
+                <div className="flex gap-2 mt-2">
+                  <button type="submit" className="btn btn-primary flex-1" style={{ padding: '10px' }}><Check size={18} /> Add</button>
+                  <button type="button" className="btn btn-secondary flex-1" onClick={() => setIsAddingExercise(false)} style={{ padding: '10px' }}><X size={18} /> Cancel</button>
+                </div>
               </div>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
+
+          {isWorkoutCompleted && (
+            <button 
+              className="btn btn-primary w-full mt-6 flex items-center justify-center gap-2" 
+              onClick={handleFinishWorkout}
+              style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }}
+            >
+              <Check size={24} /> Finish Workout
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

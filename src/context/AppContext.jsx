@@ -27,6 +27,7 @@ export const AppProvider = ({ children }) => {
   });
 
   const [workouts, setWorkouts] = useState(workoutPlan);
+  const [workoutHistory, setWorkoutHistory] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedMode = localStorage.getItem('isDarkMode');
     return savedMode !== null ? savedMode === 'true' : true;
@@ -100,10 +101,23 @@ export const AppProvider = ({ children }) => {
       }
     });
 
+    const unsubHistory = onSnapshot(collection(db, `${USER_PATH}/history`), (snapshot) => {
+      if (!snapshot.empty) {
+        const historyData = [];
+        snapshot.forEach(docSnap => {
+          historyData.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        setWorkoutHistory(historyData);
+      } else {
+        setWorkoutHistory([]);
+      }
+    });
+
     return () => {
       unsubProfile();
       unsubStats();
       unsubWorkouts();
+      unsubHistory();
     };
   }, [isInitializing]);
 
@@ -140,6 +154,30 @@ export const AppProvider = ({ children }) => {
     await updateDoc(doc(db, `${USER_PATH}/data/dailyStats`), newStats);
   };
 
+  const recordWorkoutCompletion = async (dayTitle) => {
+    const today = new Date();
+    const isoDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+    const month = isoDate.substring(0, 7);
+    
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const dayNum = d.getDay() || 7;
+    d.setDate(d.getDate() + 4 - dayNum);
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    const week = `${d.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+
+    const newRecord = {
+      date: isoDate,
+      month: month,
+      week: week,
+      title: dayTitle,
+      timestamp: Date.now()
+    };
+
+    const docId = `${isoDate}_${dayTitle.replace(/\s+/g, '_')}`;
+    await setDoc(doc(db, `${USER_PATH}/history`, docId), newRecord);
+  };
+
   // Workout Mutations
   const toggleSetCompletion = async (dayId, exerciseId, setIndex) => {
     let updatedDay = null;
@@ -173,6 +211,10 @@ export const AppProvider = ({ children }) => {
 
     if (updatedDay) {
       await setDoc(doc(db, `${USER_PATH}/workouts`, dayId), updatedDay);
+      const allCompleted = updatedDay.exercises.length > 0 && updatedDay.exercises.every(ex => ex.isCompleted);
+      if (allCompleted) {
+        await recordWorkoutCompletion(updatedDay.title);
+      }
     }
   };
 
@@ -203,6 +245,10 @@ export const AppProvider = ({ children }) => {
 
     if (updatedDay) {
       await setDoc(doc(db, `${USER_PATH}/workouts`, dayId), updatedDay);
+      const allCompleted = updatedDay.exercises.length > 0 && updatedDay.exercises.every(ex => ex.isCompleted);
+      if (allCompleted) {
+        await recordWorkoutCompletion(updatedDay.title);
+      }
     }
   };
 
@@ -340,6 +386,7 @@ export const AppProvider = ({ children }) => {
       dailyStats,
       updateDailyStats,
       workouts,
+      workoutHistory,
       addExercise,
       reorderExercises,
       toggleExerciseCompletion,
@@ -347,6 +394,7 @@ export const AppProvider = ({ children }) => {
       updateExerciseWeight,
       updateUserVideoId,
       deleteExercise,
+      recordWorkoutCompletion,
       isDarkMode,
       toggleTheme,
       isInitializing

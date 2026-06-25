@@ -5,7 +5,7 @@ import { Flame, Droplets, Target, Activity, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Home = () => {
-  const { userProfile, dailyStats, workouts } = useContext(AppContext);
+  const { userProfile, dailyStats, workouts, workoutHistory } = useContext(AppContext);
 
   // Get today's workout based on actual day or mock it as Monday
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -75,8 +75,97 @@ const Home = () => {
         </div>
       </div>
 
+
       <h2 className="mb-4 mt-6 flex items-center gap-2">
         <Target className="text-accent" />
+        Weekly Report
+      </h2>
+
+      <div className="card mb-6" style={{ padding: 0, overflow: 'hidden', border: 'none', background: 'transparent' }}>
+        <div className="overflow-x-auto rounded-md" style={{ border: '1px solid var(--border-color)' }}>
+          <table className="w-full text-left min-w-[500px]" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--secondary-color)', backgroundColor: 'var(--bg-card)' }}>
+                <th className="p-4 text-xs font-bold w-24" style={{ borderRight: '1px solid var(--border-color)' }}>Day</th>
+                <th className="p-4 text-xs font-bold" style={{ borderRight: '1px solid var(--border-color)' }}>Workout</th>
+                <th className="p-4 text-xs font-bold text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+          // Pre-calculate history and remaining titles
+          const history = workoutHistory || [];
+          const todayDate = new Date();
+          const d = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+          const dayNum = d.getDay() || 7;
+          d.setDate(d.getDate() + 4 - dayNum);
+          const yearStart = new Date(d.getFullYear(), 0, 1);
+          const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+          const currentWeekStr = `${d.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+          
+          const thisWeekHistory = history.filter(h => h.week === currentWeekStr);
+          const historyByDay = {};
+          thisWeekHistory.forEach(h => {
+            const parts = h.date.split('-');
+            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+            const dayNamesArr = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayName = dayNamesArr[dateObj.getDay()];
+            historyByDay[dayName] = h.title;
+          });
+
+          const completedTitles = Object.values(historyByDay);
+          const allPlannedTitles = workouts.map(w => w.title);
+          const remainingTitles = allPlannedTitles.filter(t => !completedTitles.includes(t));
+          let remainingIndex = 0;
+
+          return workouts.map((w, index) => {
+            let displayTitle = '';
+            let isCompleted = false;
+            let progressText = '';
+
+            if (historyByDay[w.day]) {
+              displayTitle = historyByDay[w.day];
+              isCompleted = true;
+            } else {
+              displayTitle = remainingTitles[remainingIndex] || w.title;
+              remainingIndex++;
+
+              const targetWorkout = workouts.find(wo => wo.title === displayTitle) || w;
+              const totalEx = targetWorkout.exercises.length;
+              const completedEx = targetWorkout.exercises.filter(ex => ex.isCompleted).length;
+              if (totalEx > 0 && totalEx === completedEx) {
+                isCompleted = true; // Wait, if it's completed but not in history, we still mark it completed
+              } else {
+                progressText = `${completedEx}/${totalEx} done`;
+              }
+            }
+            
+            return (
+              <tr key={w.id} style={{ borderBottom: index === workouts.length - 1 ? 'none' : '1px solid var(--border-color)', backgroundColor: index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-card)' }}>
+                <td className={`p-4 text-sm font-bold ${isCompleted ? 'text-accent' : ''}`} style={{ borderRight: '1px solid var(--border-color)' }}>{w.day}</td>
+                <td className={`p-4 text-sm font-bold ${isCompleted ? 'text-accent' : 'text-secondary'}`} style={{ borderRight: '1px solid var(--border-color)' }}>{displayTitle}</td>
+                <td className="p-4 text-center">
+                  {isCompleted ? (
+                    <span className="text-accent text-xs inline-flex items-center gap-1 font-bold">
+                      <CheckCircle size={14} /> Done
+                    </span>
+                  ) : (
+                    <span className="bg-primary text-secondary px-2 py-1 rounded-md text-xs" style={{ border: '1px solid var(--border-color)' }}>
+                      {progressText}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          });
+        })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2 className="mb-4 mt-6 flex items-center gap-2">
+        <Flame className="text-warning" />
         Daily Goals
       </h2>
 
