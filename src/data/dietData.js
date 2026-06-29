@@ -8,13 +8,13 @@ export const dietPlan = {
     {
       id: 'breakfast',
       name: 'Breakfast',
-      options: ['Eggs / Paneer / Sprouts', 'Oats / Idli'],
+      options: ['Paneer / Tofu / Sprouts', 'Oats / Idli / Poha'],
       time: '8:00 AM'
     },
     {
       id: 'lunch',
       name: 'Lunch',
-      options: ['Chapati', 'Dal', 'Chicken / Paneer', 'Vegetables', 'Curd'],
+      options: ['Chapati', 'Dal', 'Paneer / Soya Chunks', 'Vegetables', 'Curd'],
       time: '1:00 PM'
     },
     {
@@ -26,13 +26,13 @@ export const dietPlan = {
     {
       id: 'postworkout',
       name: 'Post-workout',
-      options: ['Whey Protein / Eggs'],
+      options: ['Whey Protein / Soya Milk / Roasted Chana'],
       time: '7:30 PM'
     },
     {
       id: 'dinner',
       name: 'Dinner',
-      options: ['Protein + Vegetables'],
+      options: ['Paneer / Tofu + Vegetables', 'Light Dal'],
       time: '9:00 PM'
     }
   ]

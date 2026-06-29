@@ -1,7 +1,17 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { collection, doc, onSnapshot, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { workoutPlan } from '../data/workoutData';
+
+const getWeekString = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const dayNum = d.getDay() || 7;
+  d.setDate(d.getDate() + 4 - dayNum);
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+};
 
 export const AppContext = createContext();
 
@@ -50,6 +60,43 @@ export const AppProvider = ({ children }) => {
           for (const day of workoutPlan) {
             await setDoc(doc(db, `${USER_PATH}/workouts`, day.id), day);
           }
+        }
+
+        // Weekly Reset Logic
+        const metaRef = doc(db, `${USER_PATH}/data/appMeta`);
+        const metaSnap = await getDoc(metaRef);
+        const currentWeek = getWeekString();
+        
+        let shouldReset = false;
+        if (!metaSnap.exists()) {
+          shouldReset = true;
+        } else {
+          const data = metaSnap.data();
+          if (data.lastResetWeek !== currentWeek || !data.v2_reset) {
+            shouldReset = true;
+          }
+        }
+
+        if (shouldReset) {
+          // Perform reset
+          const workoutsSnap = await getDocs(collection(db, `${USER_PATH}/workouts`));
+          const resetPromises = [];
+          workoutsSnap.forEach(docSnap => {
+            const wData = docSnap.data();
+            let needsUpdate = false;
+            const newExercises = wData.exercises.map(ex => {
+              if (ex.isCompleted || (ex.completedSets && ex.completedSets.length > 0)) {
+                needsUpdate = true;
+                return { ...ex, isCompleted: false, completedSets: [] };
+              }
+              return ex;
+            });
+            if (needsUpdate) {
+              resetPromises.push(updateDoc(doc(db, `${USER_PATH}/workouts`, docSnap.id), { exercises: newExercises }));
+            }
+          });
+          await Promise.all(resetPromises);
+          await setDoc(metaRef, { lastResetWeek: currentWeek, v2_reset: true }, { merge: true });
         }
       } catch (err) {
         console.error("Firebase init error:", err);
@@ -159,12 +206,7 @@ export const AppProvider = ({ children }) => {
     const isoDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
     const month = isoDate.substring(0, 7);
     
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const dayNum = d.getDay() || 7;
-    d.setDate(d.getDate() + 4 - dayNum);
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    const week = `${d.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+    const week = getWeekString();
 
     const newRecord = {
       date: isoDate,
@@ -379,6 +421,33 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const manuallyResetWeek = async () => {
+    try {
+      const workoutsSnap = await getDocs(collection(db, `${USER_PATH}/workouts`));
+      const resetPromises = [];
+      workoutsSnap.forEach(docSnap => {
+        const wData = docSnap.data();
+        let needsUpdate = false;
+        const newExercises = wData.exercises.map(ex => {
+          if (ex.isCompleted || (ex.completedSets && ex.completedSets.length > 0)) {
+            needsUpdate = true;
+            return { ...ex, isCompleted: false, completedSets: [] };
+          }
+          return ex;
+        });
+        if (needsUpdate) {
+          resetPromises.push(updateDoc(doc(db, `${USER_PATH}/workouts`, docSnap.id), { exercises: newExercises }));
+        }
+      });
+      await Promise.all(resetPromises);
+      const metaRef = doc(db, `${USER_PATH}/data/appMeta`);
+      const currentWeek = getWeekString();
+      await setDoc(metaRef, { lastResetWeek: currentWeek, v2_reset: true }, { merge: true });
+    } catch (err) {
+      console.error("Manual reset error:", err);
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       userProfile,
@@ -395,6 +464,7 @@ export const AppProvider = ({ children }) => {
       updateUserVideoId,
       deleteExercise,
       recordWorkoutCompletion,
+      manuallyResetWeek,
       isDarkMode,
       toggleTheme,
       isInitializing

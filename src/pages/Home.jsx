@@ -164,61 +164,7 @@ const Home = () => {
         </div>
       </div>
 
-      <h2 className="mb-4 mt-6 flex items-center gap-2">
-        <Flame className="text-warning" />
-        Daily Goals
-      </h2>
 
-      <div className="card">
-        <div className="flex items-center gap-2 mb-2">
-          <Flame size={20} className="text-warning" />
-          <h3 className="mb-0">Calories</h3>
-        </div>
-        <ProgressBar 
-          current={dailyStats.caloriesConsumed} 
-          target={2200} 
-          color="var(--warning)" 
-          label="Kcal" 
-        />
-      </div>
-
-      <div className="flex gap-4">
-        <div className="card" style={{ flex: 1 }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Activity size={20} className="text-accent" />
-            <h3 className="mb-0 text-sm">Protein</h3>
-          </div>
-          <ProgressBar 
-            current={dailyStats.proteinConsumed} 
-            target={140} 
-            label="g" 
-          />
-        </div>
-        <div className="card" style={{ flex: 1 }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Droplets size={20} style={{ color: '#00BFFF' }} />
-            <h3 className="mb-0 text-sm">Water</h3>
-          </div>
-          <ProgressBar 
-            current={dailyStats.waterConsumed} 
-            target={4} 
-            color="#00BFFF" 
-            label="L" 
-          />
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="flex items-center gap-2 mb-2">
-          <Activity size={20} className="text-accent" />
-          <h3 className="mb-0">Steps</h3>
-        </div>
-        <ProgressBar 
-          current={dailyStats.steps} 
-          target={10000} 
-          label="Steps" 
-        />
-      </div>
     </div>
   );
 };

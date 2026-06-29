@@ -4,11 +4,20 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, CheckCircle } from 'lucide-react';
 
 const WorkoutPlan = () => {
-  const { workouts } = useContext(AppContext);
+  const { workouts, manuallyResetWeek } = useContext(AppContext);
 
   return (
     <div className="p-4 animate-fade-in">
-      <h2 className="mb-4">Weekly Schedule</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="mb-0">Weekly Schedule</h2>
+        <button 
+          onClick={manuallyResetWeek} 
+          className="bg-primary text-secondary px-3 py-1 rounded-md text-sm font-bold" 
+          style={{ border: '1px solid var(--border-color)', cursor: 'pointer' }}
+        >
+          Reset Week
+        </button>
+      </div>
       
       {workouts.map((day) => {
         const total = day.exercises.length;

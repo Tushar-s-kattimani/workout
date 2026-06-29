@@ -29,6 +29,9 @@ const ExerciseDetails = () => {
   const [editingVideoFor, setEditingVideoFor] = useState(null);
   const [tempVideoUrl, setTempVideoUrl] = useState('');
   
+  const endTimeRef = useRef(null);
+  const wakeLockRef = useRef(null);
+  
   const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
   const alarmAudioRef = useRef(null);
   
@@ -114,31 +117,57 @@ const ExerciseDetails = () => {
     }
   };
 
-  useEffect(() => {
-    let interval;
-    if (isTimerRunning && timer > 0) {
-      interval = setInterval(() => {
-        setTimer(prev => prev - 1);
-      }, 1000);
-    } else if (timer === 0 && isTimerRunning) {
-      setIsTimerRunning(false);
-      setIsAlarmPlaying(true);
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current) {
       try {
-        if (navigator.vibrate) {
-          navigator.vibrate([200, 100, 200, 100, 200, 100, 500]);
-        }
-      } catch (e) {
-        console.error("Vibration failed", e);
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      } catch (err) {
+        console.error(err);
       }
     }
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timer]);
+  };
 
-  const startRestTimer = (restString) => {
+  useEffect(() => {
+    let interval;
+    if (isTimerRunning) {
+      interval = setInterval(() => {
+        if (endTimeRef.current) {
+          const remaining = Math.ceil((endTimeRef.current - Date.now()) / 1000);
+          if (remaining > 0) {
+            setTimer(remaining);
+          } else {
+            setTimer(0);
+            setIsTimerRunning(false);
+            setIsAlarmPlaying(true);
+            releaseWakeLock();
+            try {
+              if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 200, 100, 200, 100, 500]);
+              }
+            } catch (e) {
+              console.error("Vibration failed", e);
+            }
+          }
+        }
+      }, 500);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning]);
+
+  const startRestTimer = async (restString) => {
     const seconds = parseInt(restString.replace('s', ''));
     if (!isNaN(seconds)) {
       setTimer(seconds);
+      endTimeRef.current = Date.now() + seconds * 1000;
       setIsTimerRunning(true);
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.error('WakeLock error:', err);
+      }
     }
   };
 
@@ -207,7 +236,10 @@ const ExerciseDetails = () => {
             <Timer size={20} />
             Rest Complete!
           </h3>
-          <button className="btn w-full font-bold" style={{ backgroundColor: 'var(--warning-color)', color: '#000' }} onClick={() => setIsAlarmPlaying(false)}>
+          <button className="btn w-full font-bold" style={{ backgroundColor: 'var(--warning-color)', color: '#000' }} onClick={() => {
+            setIsAlarmPlaying(false);
+            releaseWakeLock();
+          }}>
             Stop Alarm
           </button>
         </div>
